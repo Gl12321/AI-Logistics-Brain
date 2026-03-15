@@ -162,6 +162,5 @@ def main():
     builder.fix_embeddings_format()
     builder.create_vector_index(768)
 
-
 if __name__ == "__main__":
     main()
