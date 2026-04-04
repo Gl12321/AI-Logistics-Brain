@@ -23,12 +23,22 @@ class Settings(BaseSettings):
     GRAPH_SEED_DIR: Path = BASE_DIR / "data" / "seed"
     MODELS_DIR: Path = BASE_DIR / "models"
 
-    MODELS = {
+    MODELS: dict = {
         "embedder": {
             "repo_id": "thenlper/gte-large",
             "dimension": 1024,
             "device": "cpu",
             "cache_path": MODELS_DIR / "embedder"
+        },
+
+        "summarizer": {
+            "repo_id": "Qwen/Qwen2.5-32B-Instruct-GGUF",
+            "file_name": "qwen2.5-32b-instruct-q4_k_m.gguf",
+            "context_window": 32768,
+            "temperature": 0.1,
+            "device": "cuda",
+            "tensor_split": [15, 15],
+            "cache_path": MODELS_DIR / "summarizer"
         }
     }
 
