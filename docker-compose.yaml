@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18
+    image: pgvector/pgvector:pg18
     container_name: postgres_db
     environment:
       - POSTGRES_USER=admin
@@ -19,7 +19,7 @@ services:
       - "7474:7474"
       - "7687:7687"
     volumes:
-      - neo4j_data:/data
+      - neo4j_data:/data_pipline
       - ./import:/var/lib/neo4j/import
     environment:
       - NEO4J_AUTH=neo4j/12345678

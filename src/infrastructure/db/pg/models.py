@@ -1,10 +1,30 @@
 from typing import List, Optional
 from datetime import date
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import MetaData, event, DDL
 from sqlalchemy import String, ARRAY, Text, BigInteger, Date, ForeignKey, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
+from src.core.config import get_settings
+
+settings = get_settings()
+embedder_dimension = settings.MODELS["embedder"]["dimension"]
+
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema="edgar")
+
+event.listen(
+    Base.metadata,
+    "before_create",
+    DDL("CREATE SCHEMA IF NOT EXISTS edgar;")
+)
+
+event.listen(
+    Base.metadata,
+    "before_create",
+    DDL("CREATE EXTENSION IF NOT EXISTS vector;")
+)
+
 
 class Companies(Base):
     __tablename__ = "companies"
@@ -20,11 +40,12 @@ class Companies(Base):
     def __repr__(self) -> str:
         return f"<Company(cik={self.cik}, name={self.names[0] if self.names else 'Unknown'})>"
 
+
 class CompaniesEmbeddings(Base):
     __tablename__ = "companies_embeddings"
 
     cik: Mapped[int] = mapped_column(ForeignKey("companies.cik"), primary_key=True)
-    embeddings: Mapped[List[float]] = mapped_column(nullable=True)
+    embeddings: Mapped[List[float]] = mapped_column(Vector(embedder_dimension), nullable=True)
 
 
 class Chunks(Base):
@@ -47,7 +68,8 @@ class ChunkEmbeddings(Base):
     __tablename__ = "chunk_embeddings"
 
     chunkId: Mapped[str] = mapped_column(ForeignKey("chunks.chunkId"), primary_key=True)
-    embeddings: Mapped[List[float]] = mapped_column(nullable=True)
+    embeddings: Mapped[List[float]] = mapped_column(Vector(embedder_dimension), nullable=True)
+
 
 class Managers(Base):
     __tablename__ = "managers"
