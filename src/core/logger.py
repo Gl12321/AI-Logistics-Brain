@@ -2,6 +2,9 @@ import logging
 import sys
 
 def setup_logger(name: str) -> logging.Logger:
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.engine.Engine').setLevel(logging.WARNING)
+    
     logger = logging.getLogger(name)
 
     if not logger.handlers:
