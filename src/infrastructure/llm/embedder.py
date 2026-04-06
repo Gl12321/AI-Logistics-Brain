@@ -15,13 +15,25 @@ class Embedder:
         cache_path = embedder_config["cache_path"]
 
         if not cache_path.exists():
-            os.mkdir(cache_path)
+            os.makedirs(cache_path, exist_ok=True)
 
+        logger.info(f"Loading embedder model: {embedder_config['repo_id']}")
+        
+        # Download model with progress bar if not cached
+        from huggingface_hub import snapshot_download
+        from tqdm import tqdm
+        
+        local_path = snapshot_download(
+            repo_id=embedder_config["repo_id"],
+            cache_dir=cache_path,
+            local_files_only=False,
+            tqdm_class=tqdm
+        )
+        logger.info(f"Model files ready at: {local_path}")
+        
         self.model = SentenceTransformer(
-            embedder_config["repo_id"],
-            device = embedder_config["device"],
-            cache_folder = cache_path,
-            dimension = embedder_config["dimension"]
+            local_path,
+            device=embedder_config["device"]
         )
         logger.info("Model loaded")
 
