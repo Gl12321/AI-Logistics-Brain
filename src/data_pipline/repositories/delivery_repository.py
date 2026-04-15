@@ -1,9 +1,10 @@
 from typing import List, Dict, Any, Tuple
+from collection import defaultdict
 import sqlalchemy
 import re
 
 from src.infrastructure.db.pg.postgres_client import postgres_client
-from src.infrastructure.db.pg.models import Companies, Form10, Chunks, ChunkEmbeddings, Form10Embeddings, Managers, Holdings
+from src.infrastructure.db.pg.models import Companies, Form10, Chunks, ChunkEmbeddings, Form10Embeddings, ItemsEmbeddings, Managers, Holdings
 from src.infrastructure.db.neo4j.models import SECTION_NAMES
 from src.core.logger import setup_logger
 
@@ -53,25 +54,26 @@ class DeliveryRepository:
 
     async def get_chunk_embeddings_grouped(self, limit: int = 1000, offset: int = 0) -> List[Tuple[str, List[List[float]]]]:
         async with self.db.get_session() as session:
-            stmt = sqlalchemy.text("""
-                SELECT item_id, array_agg(embeddings::text) as embeddings_texts
-                FROM edgar.chunk_embeddings
-                WHERE item_id IS NOT NULL AND embeddings IS NOT NULL
-                GROUP BY item_id
-                ORDER BY item_id
-                LIMIT :limit OFFSET :offset
-            """)
-            result = await session.execute(stmt, {"limit": limit, "offset": offset})
+            stmt = (
+                sqlalchemy.select(
+                    ChunkEmbeddings.item_id,
+                    ChunkEmbeddings.embeddings
+                )
+                .where(
+                    ChunkEmbeddings.item_id.isnot(None),
+                    ChunkEmbeddings.embeddings.isnot(None)
+                )
+                .limit(limit)
+                .offset(offset)
+            )
+            result = await session.execute(stmt)
             rows = result.all()
-            results = []
+
+            grouped = defaultdict(list)
             for row in rows:
-                embeddings_list = []
-                for text in row.embeddings_texts:
-                    # Parse "[0.1,0.2,...]" string to list of floats
-                    values = text.strip('[]').split(',')
-                    embeddings_list.append([float(v) for v in values])
-                results.append((row.item_id, embeddings_list))
-            return results
+                grouped[row.item_id].append(row.embeddings.tolist())
+
+            return list(grouped.items())
 
     async def get_chunks_for_graph(self, limit: int = 1000, offset: int = 0) -> List[Dict[str, Any]]:
         stmt = (
@@ -82,6 +84,7 @@ class DeliveryRepository:
                 Chunks.cik,
                 Chunks.cusip6,
                 Chunks.text,
+                Chunks.names,
                 ChunkEmbeddings.embeddings
             )
             .join(ChunkEmbeddings, Chunks.chunk_id == ChunkEmbeddings.chunk_id)
@@ -96,11 +99,7 @@ class DeliveryRepository:
 
         chunks = []
         for row in rows:
-            embedding = None
-            if row.embeddings is not None:
-                text = str(row.embeddings).strip('[]')
-                values = [v for v in re.split(r'[,\s]+', text) if v]
-                embedding = [float(v) for v in values]
+            embedding = row.embeddings.tolist() if row.embeddings is not None else None
             match = re.search(r'-chunk(\d{4})$', row.chunk_id)
             sequence = int(match.group(1)) if match else 0
             chunks.append({
@@ -111,6 +110,7 @@ class DeliveryRepository:
                 "cik": row.cik,
                 "cusip6": row.cusip6,
                 "text": row.text,
+                "names": row.names,
                 "text_embedding": embedding
             })
         return chunks
@@ -123,9 +123,8 @@ class DeliveryRepository:
                 Form10.cusip6,
                 Form10.source,
                 Form10.summary,
-                Companies.names
+                Form10.names
             )
-            .join(Companies, Form10.cik == Companies.cik)
             .limit(limit)
             .offset(offset)
         )
@@ -136,39 +135,54 @@ class DeliveryRepository:
 
         forms = []
         for row in rows:
-            names = row.names if isinstance(row.names, list) else []
             forms.append({
                 "form_id": row.form_id,
                 "cik": row.cik,
                 "cusip6": row.cusip6,
                 "source": row.source,
                 "summary": row.summary,
-                "names": names
+                "names": row.names
             })
         return forms
 
     async def get_sections_for_graph(self, limit: int = 1000, offset: int = 0) -> List[Dict[str, Any]]:
-        stmt = sqlalchemy.text("""
-            SELECT DISTINCT item, form_id
-            FROM edgar.chunks
-            WHERE item IS NOT NULL AND form_id IS NOT NULL
-            ORDER BY form_id, item
-            LIMIT :limit OFFSET :offset
-        """)
+        item_id_expr = Chunks.form_id + '-' + Chunks.item
+
+        stmt = (
+            sqlalchemy.select(
+                Chunks.item,
+                Chunks.form_id,
+                ItemsEmbeddings.embeddings
+            )
+            .distinct()
+            .outerjoin(
+                ItemsEmbeddings,
+                ItemsEmbeddings.item_id == item_id_expr
+            )
+            .where(
+                Chunks.item.isnot(None),
+                Chunks.form_id.isnot(None)
+            )
+            .order_by(Chunks.form_id, Chunks.item)
+            .limit(limit)
+            .offset(offset)
+        )
 
         async with self.db.get_session() as session:
-            result = await session.execute(stmt, {"limit": limit, "offset": offset})
+            result = await session.execute(stmt)
             rows = result.all()
 
         sections = []
         for row in rows:
             section_id = f"{row.form_id}-{row.item}"
             name = SECTION_NAMES.get(row.item, row.item)
+            embedding = row.embeddings.tolist() if row.embeddings is not None else None
             sections.append({
                 "section_id": section_id,
                 "item": row.item,
                 "name": name,
-                "form_id": row.form_id
+                "form_id": row.form_id,
+                "text_embedding": embedding
             })
         return sections
 

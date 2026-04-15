@@ -14,13 +14,11 @@ class GraphBuilder:
         self.neo4j = neo4j_client
 
     async def setup(self):
-        """Initialize neomodel connection using config."""
         settings = get_settings()
         uri = f"bolt://{settings.NEO4J_USER}:{settings.NEO4J_PASSWORD}@{settings.NEO4J_HOST}:{settings.NEO4J_PORT}"
         await adb.set_connection(uri)
 
     async def create_chunk_nodes(self):
-        """Create Chunk nodes with embeddings."""
         offset = 0
         total = 0
 
@@ -77,7 +75,6 @@ class GraphBuilder:
         logger.info(f"Created/Updated {total} Form nodes")
 
     async def create_section_nodes(self):
-        """Create Section nodes."""
         offset = 0
         total = 0
 
@@ -94,7 +91,8 @@ class GraphBuilder:
                         section_id=section_data["section_id"],
                         item=section_data["item"],
                         name=section_data["name"],
-                        form_id=section_data["form_id"]
+                        form_id=section_data["form_id"],
+                        text_embedding=section_data.get("text_embedding")
                     ).save()
 
             total += len(sections)
@@ -103,7 +101,6 @@ class GraphBuilder:
         logger.info(f"Created/Updated {total} Section nodes")
 
     async def create_companies_nodes(self):
-        """Create Company nodes."""
         offset = 0
         total = 0
 
@@ -129,7 +126,6 @@ class GraphBuilder:
         logger.info(f"Created/Updated {total} Company nodes")
 
     async def create_managers_nodes(self):
-        """Create Manager nodes."""
         offset = 0
         total = 0
 

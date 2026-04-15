@@ -33,6 +33,7 @@ class Section(AsyncStructuredNode):
     item = StringProperty(required=True)
     name = StringProperty(required=True)
     form_id = StringProperty(required=True)
+    text_embedding = ArrayProperty(FloatProperty())
 
 
 
@@ -44,8 +45,8 @@ class Chunk(AsyncStructuredNode):
     cik = IntegerProperty(required=True)
     cusip6 = StringProperty(required=True)
     text = StringProperty(required=True)
+    names = ArrayProperty(StringProperty())
     text_embedding = ArrayProperty(FloatProperty())
-
 
 class Company(AsyncStructuredNode):
     cik = IntegerProperty(unique_index=True, required=True)
