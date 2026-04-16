@@ -25,8 +25,10 @@ class Form(AsyncStructuredNode):
     source = StringProperty()
     summary = StringProperty()
     names = ArrayProperty(StringProperty())
+    text_embedding = ArrayProperty(FloatProperty())
 
-
+    submitted_by = AsyncRelationshipFrom("Company", "SUBMITTED")
+    contains = AsyncRelationshipTo("Section", "CONTAINS")
 
 class Section(AsyncStructuredNode):
     section_id = StringProperty(unique_index=True, required=True)
@@ -35,6 +37,8 @@ class Section(AsyncStructuredNode):
     form_id = StringProperty(required=True)
     text_embedding = ArrayProperty(FloatProperty())
 
+    part_of = AsyncRelationshipFrom("Form", "CONTAINS")
+    starts_with = AsyncRelationshipTo("Chunk", "STARTS_WITH")
 
 
 class Chunk(AsyncStructuredNode):
@@ -48,15 +52,23 @@ class Chunk(AsyncStructuredNode):
     names = ArrayProperty(StringProperty())
     text_embedding = ArrayProperty(FloatProperty())
 
+    next = AsyncRelationshipTo("Chunk", "NEXT")
+    belongs_to = AsyncRelationshipTo("Form", "BELONGS_TO")
+
 class Company(AsyncStructuredNode):
     cik = IntegerProperty(unique_index=True, required=True)
     name = StringProperty(required=True)
     cusip6 = StringProperty()
-    address = StringProperty()
+    names = ArrayProperty(StringProperty())
+    submitted = AsyncRelationshipTo("Form", "SUBMITTED")
+
+    invested_by = AsyncRelationshipFrom("Manager", "INVESTED_IN")
 
 
 class Manager(AsyncStructuredNode):
     manager_cik = IntegerProperty(unique_index=True, required=True)
     name = StringProperty(required=True)
     address = StringProperty()
+
+    invested_in = AsyncRelationshipTo("Company", "INVESTED_IN")
 

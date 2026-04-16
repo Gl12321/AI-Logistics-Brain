@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Tuple
-from collection import defaultdict
+from collections import defaultdict
 import sqlalchemy
 import re
 
@@ -192,7 +192,7 @@ class DeliveryRepository:
                 Companies.cik,
                 Companies.names,
                 Companies.cusip6,
-                Companies.address
+                Companies.name
             )
             .limit(limit)
             .offset(offset)
@@ -204,12 +204,11 @@ class DeliveryRepository:
 
         companies = []
         for row in rows:
-            name = row.names[0] if isinstance(row.names, list) and row.names else ""
             companies.append({
                 "cik": row.cik,
-                "name": name,
+                "name": row.name,
                 "cusip6": row.cusip6,
-                "address": row.address
+                "names": row.names
             })
         return companies
 
@@ -236,3 +235,59 @@ class DeliveryRepository:
                 "address": row.address
             })
         return managers
+
+    async def get_form_embeddings_for_graph(self, limit: int = 1000, offset: int = 0) -> Dict[str, List[float]]:
+        from src.infrastructure.db.pg.models import Form10Embeddings
+
+        stmt = (
+            sqlalchemy.select(
+                Form10Embeddings.form_id,
+                Form10Embeddings.embeddings
+            )
+            .where(Form10Embeddings.embeddings.isnot(None))
+            .limit(limit)
+            .offset(offset)
+        )
+
+        async with self.db.get_session() as session:
+            result = await session.execute(stmt)
+            rows = result.all()
+
+        embeddings = {}
+        for row in rows:
+            embeddings[row.form_id] = row.embeddings.tolist()
+        return embeddings
+
+    async def get_holdings_for_graph(self, limit: int = 1000, offset: int = 0) -> List[Dict[str, Any]]:
+        stmt = sqlalchemy.text("""
+            SELECT
+                manager_cik,
+                cusip6,
+                array_agg(value) as values,
+                array_agg(shares) as shares,
+                array_agg(report_date) as dates,
+                array_agg(cusip) as cusips
+            FROM (
+                SELECT DISTINCT manager_cik, cusip6, value, shares, report_date, cusip
+                FROM edgar.holdings
+                WHERE manager_cik IS NOT NULL AND cusip6 IS NOT NULL
+            ) sub
+            GROUP BY manager_cik, cusip6
+            LIMIT :limit OFFSET :offset
+        """)
+
+        async with self.db.get_session() as session:
+            result = await session.execute(stmt, {"limit": limit, "offset": offset})
+            rows = result.all()
+
+        holdings = []
+        for row in rows:
+            holdings.append({
+                "manager_cik": row.manager_cik,
+                "cusip6": row.cusip6,
+                "values": row.values,
+                "shares": row.shares,
+                "dates": row.dates,
+                "cusips": row.cusips
+            })
+        return holdings
