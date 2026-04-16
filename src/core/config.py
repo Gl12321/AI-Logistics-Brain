@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     NEO4J_PASSWORD: str = "12345678"
 
     DATA_RAW_DIR: Path = BASE_DIR / "data" / "raw"
-    GRAPH_SEED_DIR: Path = BASE_DIR / "data" / "seed"
     MODELS_DIR: Path = BASE_DIR / "models"
 
     MODELS: dict = {
@@ -32,8 +31,8 @@ class Settings(BaseSettings):
         },
 
         "summarizer": {
-            "repo_id": "Qwen/Qwen2.5-32B-Instruct-GGUF",
-            "file_name": "qwen2.5-32b-instruct-q4_k_m.gguf",
+            "repo_id": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+            "file_name": "Qwen2.5-14B-Instruct-Q6_K.gguf",
             "context_window": 32768,
             "temperature": 0.1,
             "device": "cuda",
@@ -52,6 +51,9 @@ class Settings(BaseSettings):
     def db_url_async(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
+    @property
+    def neo4j_url_async(self) -> str:
+        return f"bolt://{self.NEO4J_USER}:{self.NEO4J_PASSWORD}@{self.NEO4J_HOST}:{self.NEO4J_PORT}"
 
 @lru_cache()
 def get_settings() -> Settings:
