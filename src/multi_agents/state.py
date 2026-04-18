@@ -1,15 +1,13 @@
-from typing import Annotated, TypedDict, List, Union, Literal
 import operator
-
+from typing import Annotated, TypedDict, Any, Dict
 
 class AgentState(TypedDict):
-
-    original_task: str
-    current_step_task: str
-    plan: List[str]
-    context: Annotated[List[str], operator.add]
-    agent_outcomes: Annotated[List[str], operator.add]
+    user_query: str
+    conversation_summary: str
+    agent_outcomes: Annotated[list[str], operator.add]
+    plan: dict
+    iteration_count: Annotated[int, operator.add]
+    completed_steps: int
     next_actor: str
-    final_report: str
-    iteration_count: int
-
+    status: str
+    final_answer: str
